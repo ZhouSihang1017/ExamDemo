@@ -1,0 +1,68 @@
+--题一
+SELECT COUNT(A.MSISDN)
+  FROM (SELECT MSISDN,
+               SUM(PV) PV
+          FROM PAGEVISIT
+         WHERE RECORD_DAY BETWEEN '20171001' AND '20171007'
+         GROUP BY MSISDN) A
+  LEFT JOIN USER_INFO B
+  ON A.MSISDN = B.MSISDN AND B.SEX = '男'
+ WHERE B.MSISDN IS NOT NULL
+   AND A.PV > 100;
+
+SELECT MSISDN
+  FROM (SELECT B.MSISDN,
+               DATEDIFF(FROM_UNIXTIME(UNIX_TIMESTAMP(MAX(B.RECORD_DAY),'yyyyMMdd'),'yyyy-MM-dd'),
+                        FROM_UNIXTIME(UNIX_TIMESTAMP(MIN(B.RECORD_DAY),'yyyyMMdd'),'yyyy-MM-dd')) DIFF,
+               COLLECT_SET (B.RECORD_DAY)
+          FROM (SELECT A.MSISDN,
+                       A.RECORD_DAY,
+                       A.RECORD_DAY - A.RN NUM
+                  FROM (SELECT MSISDN,
+                               RECORD_DAY,
+                               ROW_NUMBER() OVER (PARTITION BY MSISDN ORDER BY RECORD_DAY) RN
+                          FROM PAGEVISIT
+                         WHERE RECORD_DAY BETWEEN '20171001' AND '20171007'
+                         GROUP BY MSISDN,RECORD_DAY) A) B
+         GROUP BY B.MSISDN,B.NUM) A
+ WHERE DIFF >= 2;
+ 
+--题二
+SELECT DEPT_NAME,
+       NAME,
+       SALARY,
+       RN
+  FROM (SELECT B.DEPT_NAME,
+               A.NAME,
+               A.SALARY,
+               DENSE_RANK() OVER (PARTITION BY B.DEPT_NAME ORDER BY A.SALARY DESC) RN
+          FROM EMPLOYEE A
+          LEFT JOIN DEPARTMENT B
+          ON A.DEPARTMENTID = B.DEPARTMENTID
+         WHERE B.DEPARTMENTID IS NOT NULL) A
+ WHERE RN <= 3;
+
+--题三
+
+SELECT REQUEST_AT DAY,
+       ROUND(COUNT2/COUNT1,2) CANCELLATION_RATE
+  FROM (SELECT REQUEST_AT,
+               COUNT(ID) COUNT1,
+               COUNT(CASE WHEN UPPER(A.STATUS) IN ('CANCELLED_BY_DRIVER','CANCELLED_BY_CLIENT') THEN A.ID ELSE NULL END ) COUNT2
+          FROM TRIPS A 
+          LEFT JOIN(SELECT USER_ID
+                      FROM USERS
+                     WHERE UPPER(BANNED) = 'NO'
+                     GROUP BY USER_ID) B
+          ON A.CLIEND_ID = B.USER_ID
+          LEFT JOIN (SELECT USER_ID
+                       FROM USERS
+                      WHERE UPPER(BANNED) = 'NO'
+                      GROUP BY USER_ID) C
+          ON A.DRIVER_ID = C.USER_ID
+         WHERE B.USER_ID IS NOT NULL 
+           AND C.USER_ID IS NOT NULL
+           AND REQUEST_AT BETWEEN '2013-10-01' AND '2013-10-03'
+         GROUP BY REQUEST_AT) A;
+  
+  
